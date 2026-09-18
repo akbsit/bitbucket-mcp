@@ -1,0 +1,23 @@
+{
+  "name": "bitbucket-mcp",
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=22.13.0",
+    "npm": ">=10.9.2"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "prettier --check README.md package.json tsconfig.json src && tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write README.md package.json tsconfig.json src",
+    "start": "node --env-file-if-exists=.env --enable-source-maps .dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "prettier": "3.9.8",
+    "typescript": "6.0.3"
+  }
+}
