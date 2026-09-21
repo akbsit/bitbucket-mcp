@@ -7,8 +7,8 @@ import {
   BITBUCKET_MEDIA_TYPE,
   MAX_EXPONENTIAL_RETRY_DELAY_MS,
   MAX_RETRY_AFTER_DELAY_MS,
-  RETRYABLE_HTTP_STATUS_CODES,
   RETRY_JITTER_MS,
+  RETRYABLE_HTTP_STATUS_CODES,
 } from './constants';
 import { BitbucketClientError, errorFromStatus } from './errors';
 import {
@@ -412,11 +412,8 @@ export class BitbucketClient {
   ): Promise<Response> {
     const safeUrl = this.#assertTrustedUrl(url);
 
-    for (
-      let attempt = 0;
-      attempt <= this.#config.maxRetries;
-      attempt += 1
-    ) {
+    let attempt = 0;
+    while (true) {
       const timeoutSignal = AbortSignal.timeout(
         this.#config.requestTimeoutMs,
       );
@@ -465,6 +462,7 @@ export class BitbucketClient {
             delay_ms: delayMs,
           });
           await this.#dependencies.sleep(delayMs, callerSignal);
+          attempt += 1;
           continue;
         }
 
@@ -511,6 +509,7 @@ export class BitbucketClient {
             delay_ms: delayMs,
           });
           await this.#dependencies.sleep(delayMs, callerSignal);
+          attempt += 1;
           continue;
         }
 
@@ -523,10 +522,5 @@ export class BitbucketClient {
         );
       }
     }
-
-    throw new BitbucketClientError(
-      'NETWORK_ERROR',
-      'Unable to reach Bitbucket Cloud.',
-    );
   }
 }

@@ -3,25 +3,23 @@
 ## Built With
 
 - [![Node.js][nodejs-shield]][nodejs-url]
-    - [![TypeScript][typescript-shield]][typescript-url]
-    - [![Model Context Protocol][mcp-shield]][mcp-url]
+  - [![TypeScript][typescript-shield]][typescript-url]
+  - [![Model Context Protocol][mcp-shield]][mcp-url]
 - [![Bitbucket][bitbucket-shield]][bitbucket-url]
 
 [nodejs-shield]: https://img.shields.io/badge/node.js-20232A?style=for-the-badge&logo=node.js
 [nodejs-url]: https://nodejs.org/
-
 [typescript-shield]: https://img.shields.io/badge/typescript-20232A?style=for-the-badge&logo=typescript
 [typescript-url]: https://www.typescriptlang.org/
-
 [mcp-shield]: https://img.shields.io/badge/model_context_protocol-20232A?style=for-the-badge
 [mcp-url]: https://modelcontextprotocol.io/
-
 [bitbucket-shield]: https://img.shields.io/badge/bitbucket-20232A?style=for-the-badge&logo=bitbucket
 [bitbucket-url]: https://bitbucket.org/product/guides/getting-started/overview
 
 ## Docs
 
 - [Git workflow](.docs/git-workflow.md).
+- [Node.js test pipeline](.github/bin/pipelines/test-nodejs/README.md).
 
 ## Tools
 
@@ -72,9 +70,7 @@ Build the project, then configure the client with an absolute path to `.dist/ind
   "mcpServers": {
     "bitbucket": {
       "command": "node",
-      "args": [
-        "/absolute/path/to/bitbucket-mcp/.dist/index.js"
-      ],
+      "args": ["/absolute/path/to/bitbucket-mcp/.dist/index.js"],
       "env": {
         "BITBUCKET_API_TOKEN": "your-scoped-api-token",
         "BITBUCKET_API_BASE_URL": "https://api.bitbucket.org/2.0/"
@@ -87,7 +83,7 @@ Build the project, then configure the client with an absolute path to `.dist/ind
 ## Configuration
 
 | Variable                       | Default   | Allowed range | Purpose                                     |
-|--------------------------------|-----------|---------------|---------------------------------------------|
+| ------------------------------ | --------- | ------------- | ------------------------------------------- |
 | `BITBUCKET_API_TOKEN`          | Required  | Non-empty     | Bitbucket Cloud API token                   |
 | `BITBUCKET_API_BASE_URL`       | Required  | HTTPS URL     | Bitbucket Cloud REST API base URL           |
 | `BITBUCKET_REQUEST_TIMEOUT_MS` | `15000`   | 1000-120000   | Timeout for each HTTP attempt               |
