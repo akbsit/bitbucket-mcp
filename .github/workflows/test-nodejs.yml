@@ -1,0 +1,45 @@
+name: Test
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pull-request-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Build test image
+        run: .github/bin/pipelines/test-nodejs/docker-build.sh
+
+      - name: Check project
+        run: .github/bin/pipelines/test-nodejs/docker-run.sh check
+
+      - name: Run tests
+        run: .github/bin/pipelines/test-nodejs/docker-tests.sh
+
+      - name: Check coverage
+        run: .github/bin/pipelines/test-nodejs/docker-coverage.sh
+
+      - name: Publish coverage comment
+        if: ${{ always() && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+        continue-on-error: true
+        run: .github/bin/pipelines/test-nodejs/docker-comment-coverage.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+
+      - name: Build project
+        run: .github/bin/pipelines/test-nodejs/docker-run.sh build

@@ -1,0 +1,52 @@
+name: Release
+
+on:
+  pull_request:
+    types: [ closed ]
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.ref == 'develop'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch tags
+        run: git fetch --tags
+
+      - name: Determine version
+        id: version
+        run: .github/bin/pipelines/release/determine-version.sh
+
+      - name: Create new tag
+        run: .github/bin/pipelines/release/create-tag.sh "${{ steps.version.outputs.new_version }}"
+
+      - name: Generate changelog
+        id: changelog
+        run: .github/bin/pipelines/release/generate-changelog.sh
+
+      - name: Write summary
+        run: |
+          .github/bin/pipelines/release/write-summary.sh \
+            "${{ steps.version.outputs.new_version }}" \
+            "${{ steps.changelog.outputs.changelog }}"
+
+      - name: Create GitHub Release
+        run: |
+          .github/bin/pipelines/release/create-release.sh \
+            "${{ steps.version.outputs.new_version }}" \
+            "${{ steps.changelog.outputs.changelog }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
