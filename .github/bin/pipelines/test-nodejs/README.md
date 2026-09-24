@@ -6,11 +6,12 @@ Reusable Docker-based test pipeline for Node.js projects that use npm. It is ind
 
 The target project must provide:
 
-- `package.json` and `package-lock.json`;
-- an npm `check` script;
-- an npm `build` script;
-- an npm `test` script;
-- an npm `test:coverage` script that generates `coverage/coverage-summary.json`.
+<!-- prettier-ignore -->
+* `package.json` and `package-lock.json`;
+* an npm `check` script;
+* an npm `build` script;
+* an npm `test` script;
+* an npm `test:coverage` script that generates `coverage/coverage-summary.json`.
 
 ## Local usage
 

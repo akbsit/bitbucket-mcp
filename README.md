@@ -2,10 +2,11 @@
 
 ## Built With
 
-- [![Node.js][nodejs-shield]][nodejs-url]
-  - [![TypeScript][typescript-shield]][typescript-url]
-  - [![Model Context Protocol][mcp-shield]][mcp-url]
-- [![Bitbucket][bitbucket-shield]][bitbucket-url]
+<!-- prettier-ignore -->
+* [![Node.js][nodejs-shield]][nodejs-url]
+  * [![TypeScript][typescript-shield]][typescript-url]
+  * [![Model Context Protocol][mcp-shield]][mcp-url]
+* [![Bitbucket][bitbucket-shield]][bitbucket-url]
 
 [nodejs-shield]: https://img.shields.io/badge/node.js-20232A?style=for-the-badge&logo=node.js
 [nodejs-url]: https://nodejs.org/
@@ -18,14 +19,16 @@
 
 ## Docs
 
-- [Git workflow](.docs/git-workflow.md).
-- [Node.js test pipeline](.github/bin/pipelines/test-nodejs/README.md).
+<!-- prettier-ignore -->
+* [Git workflow](.docs/git-workflow.md);
+* [Node.js test pipeline](.github/bin/pipelines/test-nodejs/README.md).
 
 ## Tools
 
-- `getPullRequest` returns pull request metadata;
-- `getPullRequestCommits` returns pull request commits with bounded pagination;
-- `getPullRequestDiff` returns a unified diff with a configurable size limit.
+<!-- prettier-ignore -->
+* `getPullRequest` returns pull request metadata;
+* `getPullRequestCommits` returns pull request commits with bounded pagination;
+* `getPullRequestDiff` returns a unified diff with a configurable size limit.
 
 ## Project setup
 
