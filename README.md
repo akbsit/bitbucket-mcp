@@ -66,7 +66,32 @@ The start command loads `.env` when the file exists. Values from the process env
 
 ## MCP client setup
 
-Build the project, then configure the client with an absolute path to `.dist/index.js`:
+Build the project first:
+
+```shell
+npm run build
+```
+
+### Option A: via run.sh (recommended)
+
+`run.sh` loads `.env` from the repository root automatically, so credentials stay out of the
+client config. Copy `.env.example` to `.env` and fill in the values, then point the client at the
+script:
+
+```json
+{
+  "mcpServers": {
+    "bitbucket": {
+      "command": "/bin/sh",
+      "args": ["/absolute/path/to/bitbucket-mcp/run.sh"]
+    }
+  }
+}
+```
+
+### Option B: direct node invocation
+
+Pass credentials via `env` in the client config:
 
 ```json
 {
