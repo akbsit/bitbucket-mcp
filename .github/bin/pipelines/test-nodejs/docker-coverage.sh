@@ -19,20 +19,40 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$coverage_directory"
+rm -f "$summary_file"
 
-docker start --attach "$container_id"
+coverage_status=0
+docker start --attach "$container_id" || coverage_status=$?
+
+copy_status=0
 docker cp \
   "$container_id:$TEST_CONTAINER_WORKDIR/coverage/." \
-  "$coverage_directory"
+  "$coverage_directory" || copy_status=$?
 
 if [ ! -f "$summary_file" ]; then
   echo "ERROR: $summary_file was not generated."
+
+  if [ "$coverage_status" -ne 0 ]; then
+    exit "$coverage_status"
+  fi
+
+  if [ "$copy_status" -ne 0 ]; then
+    exit "$copy_status"
+  fi
+
   exit 1
 fi
 
+check_status=0
 docker run --rm \
   --env "MIN_COVERAGE=$MIN_COVERAGE" \
   --volume "$coverage_directory:/coverage:ro" \
   "$TEST_IMAGE" \
   node .github/bin/pipelines/test-nodejs/check-coverage.cjs \
-  /coverage/coverage-summary.json
+  /coverage/coverage-summary.json || check_status=$?
+
+if [ "$coverage_status" -ne 0 ]; then
+  exit "$coverage_status"
+fi
+
+exit "$check_status"

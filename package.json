@@ -7,8 +7,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "prettier --check README.md package.json tsconfig.json tsconfig.test.json vitest.config.mts src test .github/bin/pipelines/test-nodejs/README.md .github/bin/pipelines/test-nodejs/check-coverage.cjs .github/workflows/test-nodejs.yml && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
-    "format": "prettier --write README.md package.json tsconfig.json tsconfig.test.json vitest.config.mts src test .github/bin/pipelines/test-nodejs/README.md .github/bin/pipelines/test-nodejs/check-coverage.cjs .github/workflows/test-nodejs.yml",
+    "check": "prettier --check README.md package.json tsconfig.json tsconfig.test.json vitest.config.mts src test .github/bin/pipelines/test-nodejs/README.md .github/bin/pipelines/test-nodejs/*.cjs .github/workflows/test-nodejs.yml && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "format": "prettier --write README.md package.json tsconfig.json tsconfig.test.json vitest.config.mts src test .github/bin/pipelines/test-nodejs/README.md .github/bin/pipelines/test-nodejs/*.cjs .github/workflows/test-nodejs.yml",
     "start": "node --env-file-if-exists=.env --enable-source-maps .dist/index.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage"

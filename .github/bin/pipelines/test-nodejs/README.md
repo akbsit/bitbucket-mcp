@@ -35,6 +35,7 @@ The coverage command enforces an 80% minimum for branches, functions, lines, and
 .github/bin/pipelines/test-nodejs/docker-run.sh check
 .github/bin/pipelines/test-nodejs/docker-tests.sh
 .github/bin/pipelines/test-nodejs/docker-coverage.sh
+.github/bin/pipelines/test-nodejs/docker-comment-coverage.sh
 .github/bin/pipelines/test-nodejs/docker-run.sh build
 ```
 
@@ -44,7 +45,11 @@ The Docker build context is controlled by the root `.dockerignore`. Keep secrets
 
 ## GitHub Actions
 
-The `.github/workflows/test-nodejs.yml` workflow runs the Docker pipeline for every pull request. Its `Node.js Test` status check must be required by the repository ruleset to block merging when tests or coverage fail.
+The `.github/workflows/test-nodejs.yml` workflow runs the Docker pipeline for every pull request. Its `Test` status check must be required by the repository ruleset to block merging when tests or coverage fail.
+
+The workflow creates one coverage comment in same-repository pull requests and updates it on subsequent runs. Pull requests from forks and Dependabot skip this step because their `GITHUB_TOKEN` is read-only. Comment publishing is best-effort, while the independent coverage check still fails the workflow when a metric is below the configured threshold.
+
+`docker-comment-coverage.sh` is intended for GitHub Actions. Running it locally requires `GITHUB_TOKEN`, `GITHUB_REPOSITORY`, and `PR_NUMBER`.
 
 ## Configuration
 
@@ -59,5 +64,7 @@ The `.github/workflows/test-nodejs.yml` workflow runs the Docker pipeline for ev
 | `TEST_SCRIPT`             | `test`                | npm unit-test script         |
 | `COVERAGE_SCRIPT`         | `test:coverage`       | npm coverage script          |
 | `MIN_COVERAGE`            | `80`                  | Required coverage percentage |
+| `GITHUB_API_URL`          | GitHub Actions value  | GitHub REST API base URL     |
+| `GITHUB_API_VERSION`      | `2022-11-28`          | GitHub REST API version      |
 
 The coverage script accepts any Jest, Vitest, or Istanbul-compatible `coverage-summary.json`. It validates branches, functions, lines, and statements. Any metric below `MIN_COVERAGE` fails the pipeline.

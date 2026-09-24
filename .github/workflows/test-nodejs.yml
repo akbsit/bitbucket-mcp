@@ -5,6 +5,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: pull-request-${{ github.event.pull_request.number }}
@@ -31,6 +32,14 @@ jobs:
 
       - name: Check coverage
         run: .github/bin/pipelines/test-nodejs/docker-coverage.sh
+
+      - name: Publish coverage comment
+        if: ${{ always() && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
+        continue-on-error: true
+        run: .github/bin/pipelines/test-nodejs/docker-comment-coverage.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
 
       - name: Build project
         run: .github/bin/pipelines/test-nodejs/docker-run.sh build
