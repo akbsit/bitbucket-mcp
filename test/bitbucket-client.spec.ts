@@ -496,10 +496,13 @@ describe('BitbucketClient', () => {
       requestTimeoutMs: 1,
       maxRetries: 0,
     }).getPullRequest(reference);
+    const assertion = expect(request).rejects.toMatchObject({
+      code: 'TIMEOUT',
+    });
 
     await vi.advanceTimersByTimeAsync(2);
 
-    await expect(request).rejects.toMatchObject({ code: 'TIMEOUT' });
+    await assertion;
   });
 
   it.each([
