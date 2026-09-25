@@ -267,6 +267,20 @@ describe('BitbucketClient', () => {
     ).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
   });
 
+  it('uses redirect follow for diff requests', async () => {
+    const fetchMock = vi.fn(async () => new Response('diff content'));
+    const client = createClient(fetchMock);
+
+    await client.getPullRequestDiff(reference);
+
+    const [url, options] = fetchMock.mock
+      .calls[0] as unknown as Parameters<typeof fetch>;
+    expect(String(url)).toBe(
+      'https://api.bitbucket.org/2.0/repositories/workspace/repository/pullrequests/42/diff',
+    );
+    expect(options).toMatchObject({ redirect: 'follow' });
+  });
+
   it('returns and truncates diffs at the byte limit', async () => {
     const fetchMock = vi.fn(async () => new Response('abcdef'));
 
