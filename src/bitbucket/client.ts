@@ -288,6 +288,7 @@ export class BitbucketClient {
       this.#buildPullRequestUrl(reference, 'diff'),
       BITBUCKET_MEDIA_TYPE.diff,
       signal,
+      'follow',
     );
     const result = await this.#readResponse(
       response,
@@ -409,6 +410,7 @@ export class BitbucketClient {
     url: URL,
     accept: string,
     callerSignal?: AbortSignal,
+    redirect: RequestRedirect = 'error',
   ): Promise<Response> {
     const safeUrl = this.#assertTrustedUrl(url);
 
@@ -430,7 +432,7 @@ export class BitbucketClient {
             Authorization: `Bearer ${this.#config.apiToken}`,
             'User-Agent': USER_AGENT,
           },
-          redirect: 'error',
+          redirect,
           signal: requestSignal,
         });
 
