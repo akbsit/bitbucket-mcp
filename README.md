@@ -28,7 +28,8 @@
 <!-- prettier-ignore -->
 * `getPullRequest` returns pull request metadata;
 * `getPullRequestCommits` returns pull request commits with bounded pagination;
-* `getPullRequestDiff` returns a unified diff with a configurable size limit.
+* `getPullRequestDiff` returns a unified diff with a configurable size limit;
+* `getPullRequestComments` returns pull request comments (general and inline) with bounded pagination.
 
 ## Project setup
 
@@ -118,6 +119,7 @@ Pass credentials via `env` in the client config:
 | `BITBUCKET_MAX_RETRIES`        | `2`       | 0-5           | Retries after the initial request           |
 | `BITBUCKET_MAX_PAGES`          | `20`      | 1-100         | Maximum commit pages per tool call          |
 | `BITBUCKET_MAX_COMMITS`        | `1000`    | 1-5000        | Maximum commits returned per tool call      |
+| `BITBUCKET_MAX_COMMENTS`       | `500`     | 1-5000        | Maximum comments returned per tool call     |
 | `BITBUCKET_MAX_DIFF_BYTES`     | `2000000` | 1024-10000000 | Maximum bytes retained from a diff          |
 | `BITBUCKET_MAX_JSON_BYTES`     | `1000000` | 1024-10000000 | Maximum bytes accepted in one JSON response |
 

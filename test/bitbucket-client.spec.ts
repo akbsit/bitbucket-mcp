@@ -29,6 +29,7 @@ const baseConfig: AppConfig = {
   maxRetries: 2,
   maxPages: 20,
   maxCommits: 1_000,
+  maxComments: 500,
   maxDiffBytes: 2_000_000,
   maxJsonBytes: 1_000_000,
 };
@@ -264,6 +265,125 @@ describe('BitbucketClient', () => {
 
     await expect(
       createClient(fetchMock).getPullRequestCommits(reference),
+    ).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
+  });
+
+  it('fetches all comment pages and maps optional fields', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          values: [
+            {
+              id: 1,
+              deleted: false,
+              content: { raw: 'General comment' },
+              created_on: '2026-01-01T00:00:00.000Z',
+              updated_on: '2026-01-01T00:00:00.000Z',
+              author: {
+                display_name: 'DevOpsBucket',
+                account_id: 'acc-1',
+              },
+              inline: null,
+              parent: null,
+            },
+          ],
+          next: 'repositories/workspace/repository/pullrequests/42/comments?page=2',
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          values: [
+            {
+              id: 2,
+              deleted: false,
+              content: { raw: 'Inline comment' },
+              created_on: '2026-01-02T00:00:00.000Z',
+              updated_on: '2026-01-02T00:00:00.000Z',
+              author: null,
+              inline: { path: 'src/foo.ts', from: null, to: 10 },
+              parent: { id: 1 },
+            },
+          ],
+        }),
+      );
+
+    const result =
+      await createClient(fetchMock).getPullRequestComments(reference);
+
+    expect(result).toEqual({
+      values: [
+        {
+          id: 1,
+          content: 'General comment',
+          author: { display_name: 'DevOpsBucket', account_id: 'acc-1' },
+          created_on: '2026-01-01T00:00:00.000Z',
+          updated_on: '2026-01-01T00:00:00.000Z',
+          inline: null,
+          parent_id: null,
+          deleted: false,
+        },
+        {
+          id: 2,
+          content: 'Inline comment',
+          author: null,
+          created_on: '2026-01-02T00:00:00.000Z',
+          updated_on: '2026-01-02T00:00:00.000Z',
+          inline: { path: 'src/foo.ts', from: null, to: 10 },
+          parent_id: 1,
+          deleted: false,
+        },
+      ],
+      fetched_count: 2,
+      truncated: false,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const [url] = fetchMock.mock.calls[0] as unknown as Parameters<
+      typeof fetch
+    >;
+    expect(String(url)).toContain('/pullrequests/42/comments?pagelen=100');
+  });
+
+  it('maps missing comment fields to defaults', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        values: [{ id: 1 }],
+      }),
+    );
+
+    const result =
+      await createClient(fetchMock).getPullRequestComments(reference);
+
+    expect(result.values[0]).toEqual({
+      id: 1,
+      content: '',
+      author: null,
+      created_on: '',
+      updated_on: '',
+      inline: null,
+      parent_id: null,
+      deleted: false,
+    });
+  });
+
+  it('truncates comments at the configured item limit', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ values: [{ id: 1 }, { id: 2 }] }),
+    );
+
+    const result = await createClient(fetchMock, {
+      maxComments: 1,
+    }).getPullRequestComments(reference);
+
+    expect(result.values).toHaveLength(1);
+    expect(result.truncated).toBe(true);
+  });
+
+  it('rejects malformed comment pages', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({ values: null }));
+
+    await expect(
+      createClient(fetchMock).getPullRequestComments(reference),
     ).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
   });
 

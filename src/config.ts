@@ -5,6 +5,7 @@ const CONFIGURATION_DEFAULTS = Object.freeze({
   maxRetries: 2,
   maxPages: 20,
   maxCommits: 1_000,
+  maxComments: 500,
   maxDiffBytes: 2_000_000,
   maxJsonBytes: 1_000_000,
 });
@@ -14,6 +15,7 @@ const CONFIGURATION_LIMITS = Object.freeze({
   maxRetries: { minimum: 0, maximum: 5 },
   maxPages: { minimum: 1, maximum: 100 },
   maxCommits: { minimum: 1, maximum: 5_000 },
+  maxComments: { minimum: 1, maximum: 5_000 },
   responseBytes: { minimum: 1_024, maximum: 10_000_000 },
 });
 
@@ -90,6 +92,12 @@ const environmentSchema = z.object({
     CONFIGURATION_LIMITS.maxCommits.minimum,
     CONFIGURATION_LIMITS.maxCommits.maximum,
   ),
+  BITBUCKET_MAX_COMMENTS: boundedInteger(
+    'BITBUCKET_MAX_COMMENTS',
+    CONFIGURATION_DEFAULTS.maxComments,
+    CONFIGURATION_LIMITS.maxComments.minimum,
+    CONFIGURATION_LIMITS.maxComments.maximum,
+  ),
   BITBUCKET_MAX_DIFF_BYTES: boundedInteger(
     'BITBUCKET_MAX_DIFF_BYTES',
     CONFIGURATION_DEFAULTS.maxDiffBytes,
@@ -111,6 +119,7 @@ export interface AppConfig {
   readonly maxRetries: number;
   readonly maxPages: number;
   readonly maxCommits: number;
+  readonly maxComments: number;
   readonly maxDiffBytes: number;
   readonly maxJsonBytes: number;
 }
@@ -141,6 +150,7 @@ export function loadConfig(
     maxRetries: result.data.BITBUCKET_MAX_RETRIES,
     maxPages: result.data.BITBUCKET_MAX_PAGES,
     maxCommits: result.data.BITBUCKET_MAX_COMMITS,
+    maxComments: result.data.BITBUCKET_MAX_COMMENTS,
     maxDiffBytes: result.data.BITBUCKET_MAX_DIFF_BYTES,
     maxJsonBytes: result.data.BITBUCKET_MAX_JSON_BYTES,
   });
