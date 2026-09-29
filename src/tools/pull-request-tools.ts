@@ -5,6 +5,16 @@ import { BitbucketClientError } from '../bitbucket/errors';
 import type { PullRequestReference } from '../bitbucket/types';
 import type { Logger } from '../logger';
 
+export interface CommentFooterConfig {
+  readonly enabled: boolean;
+  readonly agentName: string;
+}
+
+const DEFAULT_FOOTER_CONFIG: CommentFooterConfig = {
+  enabled: true,
+  agentName: 'agent',
+};
+
 const pullRequestInputSchema = z.object({
   workspace: z
     .string()
@@ -162,6 +172,7 @@ export function registerPullRequestTools(
   server: McpServer,
   client: BitbucketClient,
   logger: Logger,
+  footerConfig: CommentFooterConfig = DEFAULT_FOOTER_CONFIG,
 ): void {
   server.registerTool(
     'getPullRequest',
@@ -240,6 +251,67 @@ export function registerPullRequestTools(
           context.mcpReq.signal,
         );
         return successResult({ ...result, values: [...result.values] });
+      } catch (error) {
+        return errorResult(error, logger);
+      }
+    },
+  );
+
+  const createCommentInputSchema = pullRequestInputSchema.extend({
+    content: z.string().trim().min(1).describe('Comment body in Markdown'),
+    parent_id: z
+      .union([
+        z
+          .string()
+          .trim()
+          .regex(/^[1-9]\d*$/),
+        z.number().int().positive(),
+      ])
+      .optional()
+      .describe(
+        'Parent comment id. When set, posts a reply to that comment.',
+      ),
+    agent: z
+      .string()
+      .trim()
+      .min(1)
+      .max(100)
+      .optional()
+      .describe(
+        'Agent name inserted into the footer. Overrides BITBUCKET_AGENT_NAME.',
+      ),
+  });
+
+  const createCommentOutputSchema = z.object({
+    id: z.number().int().positive(),
+    content: z.string(),
+  });
+
+  server.registerTool(
+    'createPullRequestComment',
+    {
+      description:
+        'Post a comment or reply on a Bitbucket Cloud pull request. Pass parent_id to reply to an existing comment. Appends an attribution footer unless disabled via BITBUCKET_COMMENT_FOOTER=false.',
+      inputSchema: createCommentInputSchema,
+      outputSchema: createCommentOutputSchema,
+    },
+    async (input, context) => {
+      try {
+        const agentName = input.agent ?? footerConfig.agentName;
+        const footer = footerConfig.enabled
+          ? `\n\n---\n🤖 _Generated via ${agentName} and verified by human_`
+          : '';
+        const parentId =
+          input.parent_id === undefined
+            ? undefined
+            : Number(input.parent_id);
+        const result = await client.createPullRequestComment(
+          toReference(input),
+          `${input.content}${footer}`,
+          parentId,
+          context.mcpReq.signal,
+        );
+        return successResult({ ...result });
       } catch (error) {
         return errorResult(error, logger);
       }

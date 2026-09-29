@@ -29,7 +29,8 @@
 * `getPullRequest` returns pull request metadata;
 * `getPullRequestCommits` returns pull request commits with bounded pagination;
 * `getPullRequestDiff` returns a unified diff with a configurable size limit;
-* `getPullRequestComments` returns pull request comments (general and inline) with bounded pagination.
+* `getPullRequestComments` returns pull request comments (general and inline) with bounded pagination;
+* `createPullRequestComment` posts a comment or reply on a pull request. Pass `parent_id` to reply to an existing comment. An attribution footer is appended automatically (configurable).
 
 ## Project setup
 
@@ -111,17 +112,19 @@ Pass credentials via `env` in the client config:
 
 ## Configuration
 
-| Variable                       | Default   | Allowed range | Purpose                                     |
-| ------------------------------ | --------- | ------------- | ------------------------------------------- |
-| `BITBUCKET_API_TOKEN`          | Required  | Non-empty     | Bitbucket Cloud API token                   |
-| `BITBUCKET_API_BASE_URL`       | Required  | HTTPS URL     | Bitbucket Cloud REST API base URL           |
-| `BITBUCKET_REQUEST_TIMEOUT_MS` | `15000`   | 1000-120000   | Timeout for each HTTP attempt               |
-| `BITBUCKET_MAX_RETRIES`        | `2`       | 0-5           | Retries after the initial request           |
-| `BITBUCKET_MAX_PAGES`          | `20`      | 1-100         | Maximum commit pages per tool call          |
-| `BITBUCKET_MAX_COMMITS`        | `1000`    | 1-5000        | Maximum commits returned per tool call      |
-| `BITBUCKET_MAX_COMMENTS`       | `500`     | 1-5000        | Maximum comments returned per tool call     |
-| `BITBUCKET_MAX_DIFF_BYTES`     | `2000000` | 1024-10000000 | Maximum bytes retained from a diff          |
-| `BITBUCKET_MAX_JSON_BYTES`     | `1000000` | 1024-10000000 | Maximum bytes accepted in one JSON response |
+| Variable                       | Default   | Allowed range | Purpose                                      |
+| ------------------------------ | --------- | ------------- | -------------------------------------------- |
+| `BITBUCKET_API_TOKEN`          | Required  | Non-empty     | Bitbucket Cloud API token                    |
+| `BITBUCKET_API_BASE_URL`       | Required  | HTTPS URL     | Bitbucket Cloud REST API base URL            |
+| `BITBUCKET_REQUEST_TIMEOUT_MS` | `15000`   | 1000-120000   | Timeout for each HTTP attempt                |
+| `BITBUCKET_MAX_RETRIES`        | `2`       | 0-5           | Retries after the initial request            |
+| `BITBUCKET_MAX_PAGES`          | `20`      | 1-100         | Maximum commit pages per tool call           |
+| `BITBUCKET_MAX_COMMITS`        | `1000`    | 1-5000        | Maximum commits returned per tool call       |
+| `BITBUCKET_MAX_COMMENTS`       | `500`     | 1-5000        | Maximum comments returned per tool call      |
+| `BITBUCKET_MAX_DIFF_BYTES`     | `2000000` | 1024-10000000 | Maximum bytes retained from a diff           |
+| `BITBUCKET_MAX_JSON_BYTES`     | `1000000` | 1024-10000000 | Maximum bytes accepted in one JSON response  |
+| `BITBUCKET_COMMENT_FOOTER`     | `true`    | true/false    | Append attribution footer to posted comments |
+| `BITBUCKET_AGENT_NAME`         | `agent`   | 1-100 chars   | Agent name used in the footer template       |
 
 The API base URL must use HTTPS and cannot contain credentials, query parameters, or fragments.
 

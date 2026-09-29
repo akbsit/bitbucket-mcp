@@ -18,10 +18,23 @@ describe('loadConfig', () => {
       maxPages: 20,
       maxCommits: 1_000,
       maxComments: 500,
+      commentFooter: true,
+      agentName: 'agent',
       maxDiffBytes: 2_000_000,
       maxJsonBytes: 1_000_000,
     });
     expect(Object.isFrozen(config)).toBe(true);
+  });
+
+  it('loads comment footer settings', () => {
+    const config = loadConfig({
+      ...requiredEnvironment,
+      BITBUCKET_COMMENT_FOOTER: 'false',
+      BITBUCKET_AGENT_NAME: 'Claude Engineer Agent',
+    });
+
+    expect(config.commentFooter).toBe(false);
+    expect(config.agentName).toBe('Claude Engineer Agent');
   });
 
   it('loads configured operational limits', () => {

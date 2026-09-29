@@ -72,3 +72,10 @@ export const commentPageResponseSchema = z
     next: z.string().min(1).nullish(),
   })
   .loose();
+
+export const createCommentResponseSchema = z
+  .object({
+    id: z.number().int().positive(),
+    content: z.object({ raw: optionalText }).nullish(),
+  })
+  .loose();

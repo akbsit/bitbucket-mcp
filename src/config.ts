@@ -98,6 +98,13 @@ const environmentSchema = z.object({
     CONFIGURATION_LIMITS.maxComments.minimum,
     CONFIGURATION_LIMITS.maxComments.maximum,
   ),
+  BITBUCKET_COMMENT_FOOTER: z
+    .string()
+    .trim()
+    .pipe(z.enum(['true', 'false']))
+    .transform((v) => v === 'true')
+    .default(true),
+  BITBUCKET_AGENT_NAME: z.string().trim().min(1).max(100).default('agent'),
   BITBUCKET_MAX_DIFF_BYTES: boundedInteger(
     'BITBUCKET_MAX_DIFF_BYTES',
     CONFIGURATION_DEFAULTS.maxDiffBytes,
@@ -120,6 +127,8 @@ export interface AppConfig {
   readonly maxPages: number;
   readonly maxCommits: number;
   readonly maxComments: number;
+  readonly commentFooter: boolean;
+  readonly agentName: string;
   readonly maxDiffBytes: number;
   readonly maxJsonBytes: number;
 }
@@ -151,6 +160,8 @@ export function loadConfig(
     maxPages: result.data.BITBUCKET_MAX_PAGES,
     maxCommits: result.data.BITBUCKET_MAX_COMMITS,
     maxComments: result.data.BITBUCKET_MAX_COMMENTS,
+    commentFooter: result.data.BITBUCKET_COMMENT_FOOTER,
+    agentName: result.data.BITBUCKET_AGENT_NAME,
     maxDiffBytes: result.data.BITBUCKET_MAX_DIFF_BYTES,
     maxJsonBytes: result.data.BITBUCKET_MAX_JSON_BYTES,
   });
