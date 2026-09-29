@@ -46,7 +46,7 @@ The Docker build context is controlled by the root `.dockerignore`. Keep secrets
 
 ## GitHub Actions
 
-The `.github/workflows/test-nodejs.yml` workflow runs the Docker pipeline for every pull request. Its `Test` status check must be required by the repository ruleset to block merging when tests or coverage fail.
+The `.github/workflows/test-nodejs.yml` workflow runs the Docker pipeline for every pull request. Its `Test NodeJS` status check must be required by the repository ruleset to block merging when tests or coverage fail.
 
 The workflow creates one coverage comment in same-repository pull requests and updates it on subsequent runs. Pull requests from forks and Dependabot skip this step because their `GITHUB_TOKEN` is read-only. Comment publishing is best-effort, while the independent coverage check still fails the workflow when a metric is below the configured threshold.
 

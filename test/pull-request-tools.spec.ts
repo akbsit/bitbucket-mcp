@@ -25,6 +25,7 @@ describe('pull request tools', () => {
     getPullRequest: vi.fn(),
     getPullRequestCommits: vi.fn(),
     getPullRequestDiff: vi.fn(),
+    getPullRequestComments: vi.fn(),
   };
   const logger: Logger = {
     warn: vi.fn(),
@@ -50,6 +51,7 @@ describe('pull request tools', () => {
       'getPullRequest',
       'getPullRequestCommits',
       'getPullRequestDiff',
+      'getPullRequestComments',
     ]);
   });
 
@@ -100,6 +102,22 @@ describe('pull request tools', () => {
       context,
     );
 
+    expect(result?.structuredContent).toEqual(payload);
+  });
+
+  it('returns comment results', async () => {
+    const payload = { values: [], fetched_count: 0, truncated: false };
+    client.getPullRequestComments.mockResolvedValueOnce(payload);
+
+    const result = await handlers.get('getPullRequestComments')?.(
+      { workspace: 'workspace', repo_slug: 'repository', pr_id: 7 },
+      context,
+    );
+
+    expect(client.getPullRequestComments).toHaveBeenCalledWith(
+      { workspace: 'workspace', repoSlug: 'repository', prId: '7' },
+      context.mcpReq.signal,
+    );
     expect(result?.structuredContent).toEqual(payload);
   });
 

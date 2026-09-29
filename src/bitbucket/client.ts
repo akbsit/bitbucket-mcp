@@ -3,6 +3,7 @@ import type { AppConfig } from '../config';
 import type { Logger } from '../logger';
 import {
   BASE_RETRY_DELAY_MS,
+  BITBUCKET_COMMENTS_PAGE_LENGTH,
   BITBUCKET_COMMITS_PAGE_LENGTH,
   BITBUCKET_MEDIA_TYPE,
   MAX_EXPONENTIAL_RETRY_DELAY_MS,
@@ -12,11 +13,14 @@ import {
 } from './constants';
 import { BitbucketClientError, errorFromStatus } from './errors';
 import {
+  commentPageResponseSchema,
   commitPageResponseSchema,
   pullRequestResponseSchema,
 } from './schemas';
 import type {
   PullRequest,
+  PullRequestComment,
+  PullRequestComments,
   PullRequestCommit,
   PullRequestCommits,
   PullRequestDiff,
@@ -278,6 +282,93 @@ export class BitbucketClient {
     }
 
     return { values: commits, fetched_count: commits.length, truncated };
+  }
+
+  async getPullRequestComments(
+    reference: PullRequestReference,
+    signal?: AbortSignal,
+  ): Promise<PullRequestComments> {
+    const initialUrl = this.#buildPullRequestUrl(reference, 'comments');
+    initialUrl.searchParams.set(
+      'pagelen',
+      String(BITBUCKET_COMMENTS_PAGE_LENGTH),
+    );
+
+    const comments: PullRequestComment[] = [];
+    const visitedUrls = new Set<string>();
+    let nextUrl: URL | null = initialUrl;
+    let pages = 0;
+    let truncated = false;
+
+    while (
+      nextUrl !== null &&
+      pages < this.#config.maxPages &&
+      comments.length < this.#config.maxComments
+    ) {
+      const safeUrl = this.#assertTrustedUrl(nextUrl);
+      if (visitedUrls.has(safeUrl.href)) {
+        throw new BitbucketClientError(
+          'BAD_RESPONSE',
+          'Bitbucket returned a repeated pagination URL.',
+        );
+      }
+
+      visitedUrls.add(safeUrl.href);
+      const payload = await this.#requestJson(safeUrl, signal);
+      const parsed = commentPageResponseSchema.safeParse(payload);
+      if (!parsed.success) {
+        throw new BitbucketClientError(
+          'BAD_RESPONSE',
+          'Bitbucket returned malformed comment data.',
+        );
+      }
+
+      const remaining = this.#config.maxComments - comments.length;
+      comments.push(
+        ...parsed.data.values.slice(0, remaining).map((comment) => ({
+          id: comment.id,
+          content: comment.content?.raw ?? '',
+          author:
+            comment.author === null || comment.author === undefined
+              ? null
+              : {
+                  display_name: comment.author.display_name ?? '',
+                  account_id: comment.author.account_id ?? '',
+                },
+          created_on: comment.created_on ?? '',
+          updated_on: comment.updated_on ?? '',
+          inline:
+            comment.inline === null || comment.inline === undefined
+              ? null
+              : {
+                  path: comment.inline.path,
+                  from: comment.inline.from ?? null,
+                  to: comment.inline.to ?? null,
+                },
+          parent_id: comment.parent?.id ?? null,
+          deleted: comment.deleted ?? false,
+        })),
+      );
+      pages += 1;
+
+      if (parsed.data.values.length > remaining) {
+        truncated = true;
+        nextUrl = null;
+      } else if (
+        parsed.data.next === null ||
+        parsed.data.next === undefined
+      ) {
+        nextUrl = null;
+      } else {
+        nextUrl = new URL(parsed.data.next, this.#apiBaseUrl);
+      }
+    }
+
+    if (nextUrl !== null) {
+      truncated = true;
+    }
+
+    return { values: comments, fetched_count: comments.length, truncated };
   }
 
   async getPullRequestDiff(

@@ -21,6 +21,7 @@ export const RETRYABLE_HTTP_STATUS_CODES: ReadonlySet<number> = new Set([
 ]);
 
 export const BITBUCKET_COMMITS_PAGE_LENGTH = 100;
+export const BITBUCKET_COMMENTS_PAGE_LENGTH = 100;
 export const BASE_RETRY_DELAY_MS = 250;
 export const RETRY_JITTER_MS = 100;
 export const MAX_EXPONENTIAL_RETRY_DELAY_MS = 5_000;

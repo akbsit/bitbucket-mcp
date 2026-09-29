@@ -64,6 +64,34 @@ const diffOutputSchema = z.object({
   truncated: z.boolean(),
 });
 
+const commentsOutputSchema = z.object({
+  values: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      content: z.string(),
+      author: z
+        .object({
+          display_name: z.string(),
+          account_id: z.string(),
+        })
+        .nullable(),
+      created_on: z.string(),
+      updated_on: z.string(),
+      inline: z
+        .object({
+          path: z.string(),
+          from: z.number().int().positive().nullable(),
+          to: z.number().int().positive().nullable(),
+        })
+        .nullable(),
+      parent_id: z.number().int().positive().nullable(),
+      deleted: z.boolean(),
+    }),
+  ),
+  fetched_count: z.number().int().nonnegative(),
+  truncated: z.boolean(),
+});
+
 type PullRequestInput = z.infer<typeof pullRequestInputSchema>;
 
 function toReference(input: PullRequestInput): PullRequestReference {
@@ -191,6 +219,27 @@ export function registerPullRequestTools(
           context.mcpReq.signal,
         );
         return successResult({ ...result });
+      } catch (error) {
+        return errorResult(error, logger);
+      }
+    },
+  );
+
+  server.registerTool(
+    'getPullRequestComments',
+    {
+      description:
+        'Fetch comments for a Bitbucket Cloud pull request. Includes both general and inline code comments. Results are bounded and report truncation.',
+      inputSchema: pullRequestInputSchema,
+      outputSchema: commentsOutputSchema,
+    },
+    async (input, context) => {
+      try {
+        const result = await client.getPullRequestComments(
+          toReference(input),
+          context.mcpReq.signal,
+        );
+        return successResult({ ...result, values: [...result.values] });
       } catch (error) {
         return errorResult(error, logger);
       }
