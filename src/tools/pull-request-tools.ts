@@ -291,7 +291,7 @@ export function registerPullRequestTools(
     'createPullRequestComment',
     {
       description:
-        'Post a comment or reply on a Bitbucket Cloud pull request. Pass parent_id to reply to an existing comment. Appends an attribution footer unless disabled via BITBUCKET_COMMENT_FOOTER=false.',
+        'Post a comment or reply on a Bitbucket Cloud pull request. Pass parent_id to reply to an existing comment. Appends an attribution footer "\\n\\n---\\n🤖 _Generated via {agentName} and verified by human_" unless disabled via BITBUCKET_COMMENT_FOOTER=false. Use the agent parameter to override the agent name in the footer.',
       inputSchema: createCommentInputSchema,
       outputSchema: createCommentOutputSchema,
     },
