@@ -3,6 +3,7 @@ import type { AppConfig } from '../config';
 import type { Logger } from '../logger';
 import {
   BASE_RETRY_DELAY_MS,
+  BITBUCKET_COMMENTS_PAGE_LENGTH,
   BITBUCKET_COMMITS_PAGE_LENGTH,
   BITBUCKET_MEDIA_TYPE,
   MAX_EXPONENTIAL_RETRY_DELAY_MS,
@@ -12,11 +13,16 @@ import {
 } from './constants';
 import { BitbucketClientError, errorFromStatus } from './errors';
 import {
+  commentPageResponseSchema,
   commitPageResponseSchema,
+  createCommentResponseSchema,
   pullRequestResponseSchema,
 } from './schemas';
 import type {
+  CreatedPullRequestComment,
   PullRequest,
+  PullRequestComment,
+  PullRequestComments,
   PullRequestCommit,
   PullRequestCommits,
   PullRequestDiff,
@@ -280,6 +286,120 @@ export class BitbucketClient {
     return { values: commits, fetched_count: commits.length, truncated };
   }
 
+  async getPullRequestComments(
+    reference: PullRequestReference,
+    signal?: AbortSignal,
+  ): Promise<PullRequestComments> {
+    const initialUrl = this.#buildPullRequestUrl(reference, 'comments');
+    initialUrl.searchParams.set(
+      'pagelen',
+      String(BITBUCKET_COMMENTS_PAGE_LENGTH),
+    );
+
+    const comments: PullRequestComment[] = [];
+    const visitedUrls = new Set<string>();
+    let nextUrl: URL | null = initialUrl;
+    let pages = 0;
+    let truncated = false;
+
+    while (
+      nextUrl !== null &&
+      pages < this.#config.maxPages &&
+      comments.length < this.#config.maxComments
+    ) {
+      const safeUrl = this.#assertTrustedUrl(nextUrl);
+      if (visitedUrls.has(safeUrl.href)) {
+        throw new BitbucketClientError(
+          'BAD_RESPONSE',
+          'Bitbucket returned a repeated pagination URL.',
+        );
+      }
+
+      visitedUrls.add(safeUrl.href);
+      const payload = await this.#requestJson(safeUrl, signal);
+      const parsed = commentPageResponseSchema.safeParse(payload);
+      if (!parsed.success) {
+        throw new BitbucketClientError(
+          'BAD_RESPONSE',
+          'Bitbucket returned malformed comment data.',
+        );
+      }
+
+      const remaining = this.#config.maxComments - comments.length;
+      comments.push(
+        ...parsed.data.values.slice(0, remaining).map((comment) => ({
+          id: comment.id,
+          content: comment.content?.raw ?? '',
+          author:
+            comment.author === null || comment.author === undefined
+              ? null
+              : {
+                  display_name: comment.author.display_name ?? '',
+                  account_id: comment.author.account_id ?? '',
+                },
+          created_on: comment.created_on ?? '',
+          updated_on: comment.updated_on ?? '',
+          inline:
+            comment.inline === null || comment.inline === undefined
+              ? null
+              : {
+                  path: comment.inline.path,
+                  from: comment.inline.from ?? null,
+                  to: comment.inline.to ?? null,
+                },
+          parent_id: comment.parent?.id ?? null,
+          deleted: comment.deleted ?? false,
+        })),
+      );
+      pages += 1;
+
+      if (parsed.data.values.length > remaining) {
+        truncated = true;
+        nextUrl = null;
+      } else if (
+        parsed.data.next === null ||
+        parsed.data.next === undefined
+      ) {
+        nextUrl = null;
+      } else {
+        nextUrl = new URL(parsed.data.next, this.#apiBaseUrl);
+      }
+    }
+
+    if (nextUrl !== null) {
+      truncated = true;
+    }
+
+    return { values: comments, fetched_count: comments.length, truncated };
+  }
+
+  async createPullRequestComment(
+    reference: PullRequestReference,
+    content: string,
+    parentId?: number,
+    signal?: AbortSignal,
+  ): Promise<CreatedPullRequestComment> {
+    const url = this.#buildPullRequestUrl(reference, 'comments');
+    const body: Record<string, unknown> = { content: { raw: content } };
+    if (parentId !== undefined) {
+      body['parent'] = { id: parentId };
+    }
+    const payload = await this.#postJson(url, body, signal);
+    const parsed = createCommentResponseSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      throw new BitbucketClientError(
+        'BAD_RESPONSE',
+        'Bitbucket returned malformed comment data.',
+      );
+    }
+
+    return {
+      id: parsed.data.id,
+      content: parsed.data.content?.raw ?? '',
+    };
+  }
+
   async getPullRequestDiff(
     reference: PullRequestReference,
     signal?: AbortSignal,
@@ -300,6 +420,83 @@ export class BitbucketClient {
       bytes: result.bytes,
       truncated: result.truncated,
     };
+  }
+
+  async #postJson(
+    url: URL,
+    body: unknown,
+    callerSignal?: AbortSignal,
+  ): Promise<unknown> {
+    const safeUrl = this.#assertTrustedUrl(url);
+    const timeoutSignal = AbortSignal.timeout(
+      this.#config.requestTimeoutMs,
+    );
+    const requestSignal =
+      callerSignal === undefined
+        ? timeoutSignal
+        : AbortSignal.any([callerSignal, timeoutSignal]);
+
+    let response: Response;
+    try {
+      response = await this.#dependencies.fetch(safeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: BITBUCKET_MEDIA_TYPE.json,
+          Authorization: `Bearer ${this.#config.apiToken}`,
+          'User-Agent': USER_AGENT,
+        },
+        body: JSON.stringify(body),
+        signal: requestSignal,
+      });
+    } catch (error) {
+      if (callerSignal?.aborted === true) {
+        throw new BitbucketClientError(
+          'CANCELLED',
+          'The Bitbucket request was cancelled.',
+          { cause: error },
+        );
+      }
+      if (timeoutSignal.aborted) {
+        throw new BitbucketClientError(
+          'TIMEOUT',
+          'The Bitbucket request timed out.',
+          { cause: error },
+        );
+      }
+      throw new BitbucketClientError(
+        'NETWORK_ERROR',
+        'Unable to reach Bitbucket Cloud.',
+        { cause: error },
+      );
+    }
+
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw errorFromStatus(response.status);
+    }
+
+    const result = await this.#readResponse(
+      response,
+      this.#config.maxJsonBytes,
+      callerSignal,
+    );
+    if (result.truncated) {
+      throw new BitbucketClientError(
+        'RESPONSE_TOO_LARGE',
+        'The Bitbucket JSON response exceeded the configured size limit.',
+      );
+    }
+
+    try {
+      return JSON.parse(result.text) as unknown;
+    } catch (error) {
+      throw new BitbucketClientError(
+        'BAD_RESPONSE',
+        'Bitbucket returned invalid JSON.',
+        { cause: error },
+      );
+    }
   }
 
   #buildPullRequestUrl(

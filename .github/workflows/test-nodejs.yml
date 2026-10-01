@@ -1,4 +1,4 @@
-name: Test
+name: Test NodeJS
 
 on:
   pull_request:
@@ -8,12 +8,12 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: pull-request-${{ github.event.pull_request.number }}
+  group: test-nodejs-pull-request-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   test:
-    name: Test
+    name: Test NodeJS
     runs-on: ubuntu-latest
     timeout-minutes: 10
 

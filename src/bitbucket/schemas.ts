@@ -41,3 +41,41 @@ export const commitPageResponseSchema = z
     next: z.string().min(1).nullish(),
   })
   .loose();
+
+const commentResponseSchema = z
+  .object({
+    id: z.number().int().positive(),
+    deleted: z.boolean().nullish(),
+    content: z.object({ raw: optionalText }).nullish(),
+    created_on: optionalText,
+    updated_on: optionalText,
+    author: z
+      .object({
+        display_name: optionalText,
+        account_id: optionalText,
+      })
+      .nullish(),
+    inline: z
+      .object({
+        path: z.string(),
+        from: z.number().int().positive().nullish(),
+        to: z.number().int().positive().nullish(),
+      })
+      .nullish(),
+    parent: z.object({ id: z.number().int().positive() }).nullish(),
+  })
+  .loose();
+
+export const commentPageResponseSchema = z
+  .object({
+    values: z.array(commentResponseSchema),
+    next: z.string().min(1).nullish(),
+  })
+  .loose();
+
+export const createCommentResponseSchema = z
+  .object({
+    id: z.number().int().positive(),
+    content: z.object({ raw: optionalText }).nullish(),
+  })
+  .loose();

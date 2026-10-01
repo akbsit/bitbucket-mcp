@@ -25,6 +25,8 @@ describe('pull request tools', () => {
     getPullRequest: vi.fn(),
     getPullRequestCommits: vi.fn(),
     getPullRequestDiff: vi.fn(),
+    getPullRequestComments: vi.fn(),
+    createPullRequestComment: vi.fn(),
   };
   const logger: Logger = {
     warn: vi.fn(),
@@ -50,6 +52,8 @@ describe('pull request tools', () => {
       'getPullRequest',
       'getPullRequestCommits',
       'getPullRequestDiff',
+      'getPullRequestComments',
+      'createPullRequestComment',
     ]);
   });
 
@@ -100,6 +104,22 @@ describe('pull request tools', () => {
       context,
     );
 
+    expect(result?.structuredContent).toEqual(payload);
+  });
+
+  it('returns comment results', async () => {
+    const payload = { values: [], fetched_count: 0, truncated: false };
+    client.getPullRequestComments.mockResolvedValueOnce(payload);
+
+    const result = await handlers.get('getPullRequestComments')?.(
+      { workspace: 'workspace', repo_slug: 'repository', pr_id: 7 },
+      context,
+    );
+
+    expect(client.getPullRequestComments).toHaveBeenCalledWith(
+      { workspace: 'workspace', repoSlug: 'repository', prId: '7' },
+      context.mcpReq.signal,
+    );
     expect(result?.structuredContent).toEqual(payload);
   });
 
@@ -165,5 +185,115 @@ describe('pull request tools', () => {
         message: 'Malformed response.',
       },
     });
+  });
+
+  it('posts a comment with default footer', async () => {
+    client.createPullRequestComment.mockResolvedValueOnce({
+      id: 42,
+      content:
+        'comment text\n\n---\n🤖 _Generated via agent and verified by human_',
+    });
+
+    const result = await handlers.get('createPullRequestComment')?.(
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 1,
+        content: 'comment text',
+      },
+      context,
+    );
+
+    expect(client.createPullRequestComment).toHaveBeenCalledWith(
+      { workspace: 'workspace', repoSlug: 'repository', prId: '1' },
+      'comment text\n\n---\n🤖 _Generated via agent and verified by human_',
+      undefined,
+      context.mcpReq.signal,
+    );
+    expect(result?.structuredContent).toMatchObject({ id: 42 });
+  });
+
+  it('passes parent_id as parentId when replying', async () => {
+    client.createPullRequestComment.mockResolvedValueOnce({
+      id: 2,
+      content: '',
+    });
+
+    await handlers.get('createPullRequestComment')?.(
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 1,
+        content: 'reply',
+        parent_id: 99,
+      },
+      context,
+    );
+
+    expect(client.createPullRequestComment).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.stringContaining('reply'),
+      99,
+      expect.any(Object),
+    );
+  });
+
+  it('uses agent parameter in footer when provided', async () => {
+    client.createPullRequestComment.mockResolvedValueOnce({
+      id: 1,
+      content: '',
+    });
+
+    await handlers.get('createPullRequestComment')?.(
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 1,
+        content: 'text',
+        agent: 'Claude Engineer Agent',
+      },
+      context,
+    );
+
+    expect(client.createPullRequestComment).toHaveBeenCalledWith(
+      expect.any(Object),
+      'text\n\n---\n🤖 _Generated via Claude Engineer Agent and verified by human_',
+      undefined,
+      expect.any(Object),
+    );
+  });
+
+  it('omits footer when footer is disabled', async () => {
+    handlers.clear();
+    registerTool.mockClear();
+    vi.clearAllMocks();
+    registerPullRequestTools(
+      { registerTool } as unknown as McpServer,
+      client as unknown as BitbucketClient,
+      logger,
+      { enabled: false, agentName: 'agent' },
+    );
+
+    client.createPullRequestComment.mockResolvedValueOnce({
+      id: 1,
+      content: '',
+    });
+
+    await handlers.get('createPullRequestComment')?.(
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 1,
+        content: 'plain text',
+      },
+      context,
+    );
+
+    expect(client.createPullRequestComment).toHaveBeenCalledWith(
+      expect.any(Object),
+      'plain text',
+      undefined,
+      expect.any(Object),
+    );
   });
 });

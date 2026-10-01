@@ -57,7 +57,7 @@ function buildComment(metrics, minimumCoverage) {
 
   return [
     COMMENT_MARKER,
-    '## Test coverage',
+    '## NodeJS test coverage',
     '',
     '| Metric | Coverage | Required | Status |',
     '| --- | ---: | ---: | :---: |',
