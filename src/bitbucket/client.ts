@@ -15,9 +15,11 @@ import { BitbucketClientError, errorFromStatus } from './errors';
 import {
   commentPageResponseSchema,
   commitPageResponseSchema,
+  createCommentResponseSchema,
   pullRequestResponseSchema,
 } from './schemas';
 import type {
+  CreatedPullRequestComment,
   PullRequest,
   PullRequestComment,
   PullRequestComments,
@@ -371,6 +373,33 @@ export class BitbucketClient {
     return { values: comments, fetched_count: comments.length, truncated };
   }
 
+  async createPullRequestComment(
+    reference: PullRequestReference,
+    content: string,
+    parentId?: number,
+    signal?: AbortSignal,
+  ): Promise<CreatedPullRequestComment> {
+    const url = this.#buildPullRequestUrl(reference, 'comments');
+    const body: Record<string, unknown> = { content: { raw: content } };
+    if (parentId !== undefined) {
+      body['parent'] = { id: parentId };
+    }
+    const payload = await this.#postJson(url, body, signal);
+    const parsed = createCommentResponseSchema.safeParse(payload);
+
+    if (!parsed.success) {
+      throw new BitbucketClientError(
+        'BAD_RESPONSE',
+        'Bitbucket returned malformed comment data.',
+      );
+    }
+
+    return {
+      id: parsed.data.id,
+      content: parsed.data.content?.raw ?? '',
+    };
+  }
+
   async getPullRequestDiff(
     reference: PullRequestReference,
     signal?: AbortSignal,
@@ -391,6 +420,83 @@ export class BitbucketClient {
       bytes: result.bytes,
       truncated: result.truncated,
     };
+  }
+
+  async #postJson(
+    url: URL,
+    body: unknown,
+    callerSignal?: AbortSignal,
+  ): Promise<unknown> {
+    const safeUrl = this.#assertTrustedUrl(url);
+    const timeoutSignal = AbortSignal.timeout(
+      this.#config.requestTimeoutMs,
+    );
+    const requestSignal =
+      callerSignal === undefined
+        ? timeoutSignal
+        : AbortSignal.any([callerSignal, timeoutSignal]);
+
+    let response: Response;
+    try {
+      response = await this.#dependencies.fetch(safeUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: BITBUCKET_MEDIA_TYPE.json,
+          Authorization: `Bearer ${this.#config.apiToken}`,
+          'User-Agent': USER_AGENT,
+        },
+        body: JSON.stringify(body),
+        signal: requestSignal,
+      });
+    } catch (error) {
+      if (callerSignal?.aborted === true) {
+        throw new BitbucketClientError(
+          'CANCELLED',
+          'The Bitbucket request was cancelled.',
+          { cause: error },
+        );
+      }
+      if (timeoutSignal.aborted) {
+        throw new BitbucketClientError(
+          'TIMEOUT',
+          'The Bitbucket request timed out.',
+          { cause: error },
+        );
+      }
+      throw new BitbucketClientError(
+        'NETWORK_ERROR',
+        'Unable to reach Bitbucket Cloud.',
+        { cause: error },
+      );
+    }
+
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw errorFromStatus(response.status);
+    }
+
+    const result = await this.#readResponse(
+      response,
+      this.#config.maxJsonBytes,
+      callerSignal,
+    );
+    if (result.truncated) {
+      throw new BitbucketClientError(
+        'RESPONSE_TOO_LARGE',
+        'The Bitbucket JSON response exceeded the configured size limit.',
+      );
+    }
+
+    try {
+      return JSON.parse(result.text) as unknown;
+    } catch (error) {
+      throw new BitbucketClientError(
+        'BAD_RESPONSE',
+        'Bitbucket returned invalid JSON.',
+        { cause: error },
+      );
+    }
   }
 
   #buildPullRequestUrl(

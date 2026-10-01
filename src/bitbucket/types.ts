@@ -74,3 +74,8 @@ export interface PullRequestComments {
   readonly fetched_count: number;
   readonly truncated: boolean;
 }
+
+export interface CreatedPullRequestComment {
+  readonly id: number;
+  readonly content: string;
+}

@@ -9,7 +9,10 @@ import { createServer } from './server';
 async function main(): Promise<void> {
   const config = loadConfig();
   const client = new BitbucketClient(config, { logger });
-  const server = createServer(client, logger);
+  const server = createServer(client, logger, {
+    enabled: config.commentFooter,
+    agentName: config.agentName,
+  });
   const transport = new StdioServerTransport();
   let closing = false;
 

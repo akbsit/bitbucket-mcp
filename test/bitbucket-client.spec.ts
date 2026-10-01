@@ -30,6 +30,8 @@ const baseConfig: AppConfig = {
   maxPages: 20,
   maxCommits: 1_000,
   maxComments: 500,
+  commentFooter: true,
+  agentName: 'agent',
   maxDiffBytes: 2_000_000,
   maxJsonBytes: 1_000_000,
 };
@@ -663,5 +665,67 @@ describe('BitbucketClient', () => {
         controller.signal,
       ),
     ).rejects.toMatchObject({ code: 'CANCELLED' });
+  });
+
+  it('creates a pull request comment and returns id and content', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ id: 99, content: { raw: 'hello world' } }, 201),
+    );
+
+    const result = await createClient(fetchMock).createPullRequestComment(
+      reference,
+      'hello world',
+    );
+
+    expect(result).toEqual({ id: 99, content: 'hello world' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        href: expect.stringContaining('/pullrequests/42/comments'),
+      }),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ content: { raw: 'hello world' } }),
+      }),
+    );
+  });
+
+  it('throws BAD_RESPONSE when createPullRequestComment gets malformed data', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ unexpected: true }),
+    );
+
+    await expect(
+      createClient(fetchMock).createPullRequestComment(reference, 'text'),
+    ).rejects.toMatchObject({ code: 'BAD_RESPONSE' });
+  });
+
+  it('includes parent id in the request body when replying', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ id: 100, content: { raw: 'reply' } }, 201),
+    );
+
+    await createClient(fetchMock).createPullRequestComment(
+      reference,
+      'reply',
+      42,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        body: JSON.stringify({
+          content: { raw: 'reply' },
+          parent: { id: 42 },
+        }),
+      }),
+    );
+  });
+
+  it('throws on non-ok status when creating a comment', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({}, 403));
+
+    await expect(
+      createClient(fetchMock).createPullRequestComment(reference, 'text'),
+    ).rejects.toMatchObject({ code: 'PERMISSION_DENIED' });
   });
 });
