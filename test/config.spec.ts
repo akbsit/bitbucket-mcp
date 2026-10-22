@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigurationError, loadConfig } from '../src/config';
+import {
+  ConfigurationError,
+  loadConfig,
+  loadProfiles,
+} from '../src/config';
 
 const requiredEnvironment = {
   BITBUCKET_API_TOKEN: 'token',
@@ -93,5 +97,99 @@ describe('loadConfig', () => {
   ])('rejects invalid environment values', (environment, message) => {
     expect(() => loadConfig(environment)).toThrowError(ConfigurationError);
     expect(() => loadConfig(environment)).toThrow(message);
+  });
+});
+
+describe('loadProfiles', () => {
+  it('creates a default profile from legacy BITBUCKET_API_TOKEN', () => {
+    const profiles = loadProfiles(requiredEnvironment);
+
+    expect(profiles.size).toBe(1);
+    expect(profiles.has('default')).toBe(true);
+    expect(profiles.get('default')?.apiToken).toBe('token');
+  });
+
+  it('creates named profiles from BITBUCKET_PROFILE_<NAME>_TOKEN', () => {
+    const profiles = loadProfiles({
+      BITBUCKET_API_BASE_URL: 'https://api.bitbucket.org/2.0',
+      BITBUCKET_PROFILE_WORK_TOKEN: 'work-token',
+      BITBUCKET_PROFILE_PERSONAL_TOKEN: 'personal-token',
+    });
+
+    expect(profiles.size).toBe(2);
+    expect(profiles.get('work')?.apiToken).toBe('work-token');
+    expect(profiles.get('personal')?.apiToken).toBe('personal-token');
+  });
+
+  it('creates both default and named profiles when both are present', () => {
+    const profiles = loadProfiles({
+      ...requiredEnvironment,
+      BITBUCKET_PROFILE_WORK_TOKEN: 'work-token',
+    });
+
+    expect(profiles.size).toBe(2);
+    expect(profiles.get('default')?.apiToken).toBe('token');
+    expect(profiles.get('work')?.apiToken).toBe('work-token');
+  });
+
+  it('named profile inherits shared BASE_URL when no per-profile URL is set', () => {
+    const profiles = loadProfiles({
+      BITBUCKET_API_BASE_URL: 'https://api.bitbucket.org/2.0',
+      BITBUCKET_PROFILE_WORK_TOKEN: 'work-token',
+    });
+
+    expect(profiles.get('work')?.apiBaseUrl).toBe(
+      'https://api.bitbucket.org/2.0/',
+    );
+  });
+
+  it('named profile uses its own BASE_URL when provided', () => {
+    const profiles = loadProfiles({
+      BITBUCKET_API_BASE_URL: 'https://api.bitbucket.org/2.0',
+      BITBUCKET_PROFILE_WORK_TOKEN: 'work-token',
+      BITBUCKET_PROFILE_WORK_BASE_URL: 'https://custom.example.com/2.0',
+    });
+
+    expect(profiles.get('work')?.apiBaseUrl).toBe(
+      'https://custom.example.com/2.0/',
+    );
+  });
+
+  it('lowercases profile names from env var keys', () => {
+    const profiles = loadProfiles({
+      BITBUCKET_API_BASE_URL: 'https://api.bitbucket.org/2.0',
+      BITBUCKET_PROFILE_MYTEAM_TOKEN: 'team-token',
+    });
+
+    expect(profiles.has('myteam')).toBe(true);
+  });
+
+  it('throws ConfigurationError when no credentials are found', () => {
+    expect(() => loadProfiles({})).toThrowError(ConfigurationError);
+    expect(() => loadProfiles({})).toThrow('No Bitbucket credentials');
+  });
+
+  it('throws ConfigurationError for invalid named profile token', () => {
+    expect(() =>
+      loadProfiles({
+        BITBUCKET_API_BASE_URL: 'https://api.bitbucket.org/2.0',
+        BITBUCKET_PROFILE_WORK_TOKEN: '',
+      }),
+    ).toThrowError(ConfigurationError);
+  });
+
+  it('throws ConfigurationError when BITBUCKET_PROFILE_DEFAULT_TOKEN conflicts with BITBUCKET_API_TOKEN', () => {
+    expect(() =>
+      loadProfiles({
+        ...requiredEnvironment,
+        BITBUCKET_PROFILE_DEFAULT_TOKEN: 'other-token',
+      }),
+    ).toThrowError(ConfigurationError);
+    expect(() =>
+      loadProfiles({
+        ...requiredEnvironment,
+        BITBUCKET_PROFILE_DEFAULT_TOKEN: 'other-token',
+      }),
+    ).toThrow('conflicts');
   });
 });
