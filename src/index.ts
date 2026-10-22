@@ -2,16 +2,30 @@
 
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import { BitbucketClient } from './bitbucket/client';
-import { ConfigurationError, loadConfig } from './config';
+import { ConfigurationError, loadProfiles } from './config';
 import { logger } from './logger';
 import { createServer } from './server';
 
 async function main(): Promise<void> {
-  const config = loadConfig();
-  const client = new BitbucketClient(config, { logger });
-  const server = createServer(client, logger, {
-    enabled: config.commentFooter,
-    agentName: config.agentName,
+  const profiles = loadProfiles();
+  const clients = new Map(
+    [...profiles].map(([name, config]) => [
+      name,
+      new BitbucketClient(config, { logger }),
+    ]),
+  );
+
+  logger.warn('server_starting', {
+    profiles: [...clients.keys()].join(', '),
+  });
+
+  // Footer settings (BITBUCKET_COMMENT_FOOTER, BITBUCKET_AGENT_NAME) are global.
+  // They are read from the default profile when present, otherwise from the first profile.
+  // Per-call agent name can be overridden via the createPullRequestComment "agent" parameter.
+  const baseConfig = profiles.get('default') ?? [...profiles.values()][0]!;
+  const server = createServer(clients, logger, {
+    enabled: baseConfig.commentFooter,
+    agentName: baseConfig.agentName,
   });
   const transport = new StdioServerTransport();
   let closing = false;

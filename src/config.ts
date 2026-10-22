@@ -137,6 +137,43 @@ export class ConfigurationError extends Error {
   override readonly name = 'ConfigurationError';
 }
 
+export function loadProfiles(
+  environment: NodeJS.ProcessEnv = process.env,
+): Map<string, AppConfig> {
+  const profiles = new Map<string, AppConfig>();
+
+  if (environment.BITBUCKET_API_TOKEN) {
+    profiles.set('default', loadConfig(environment));
+  }
+
+  for (const key of Object.keys(environment)) {
+    const match = /^BITBUCKET_PROFILE_([A-Z0-9]+)_TOKEN$/.exec(key);
+    if (!match) continue;
+    const name = match[1]!.toLowerCase();
+    if (name === 'default' && profiles.has('default')) {
+      throw new ConfigurationError(
+        'BITBUCKET_PROFILE_DEFAULT_TOKEN conflicts with BITBUCKET_API_TOKEN. Use one or the other to define the default profile.',
+      );
+    }
+    const baseUrlKey = `BITBUCKET_PROFILE_${match[1]}_BASE_URL`;
+    const profileEnv = {
+      ...environment,
+      BITBUCKET_API_TOKEN: environment[key],
+      BITBUCKET_API_BASE_URL:
+        environment[baseUrlKey] ?? environment.BITBUCKET_API_BASE_URL,
+    };
+    profiles.set(name, loadConfig(profileEnv));
+  }
+
+  if (profiles.size === 0) {
+    throw new ConfigurationError(
+      'No Bitbucket credentials found. Set BITBUCKET_API_TOKEN or BITBUCKET_PROFILE_<NAME>_TOKEN.',
+    );
+  }
+
+  return profiles;
+}
+
 export function loadConfig(
   environment: NodeJS.ProcessEnv = process.env,
 ): AppConfig {

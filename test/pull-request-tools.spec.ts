@@ -42,7 +42,7 @@ describe('pull request tools', () => {
     vi.clearAllMocks();
     registerPullRequestTools(
       { registerTool } as unknown as McpServer,
-      client as unknown as BitbucketClient,
+      new Map([['default', client as unknown as BitbucketClient]]),
       logger,
     );
   });
@@ -71,7 +71,12 @@ describe('pull request tools', () => {
     client.getPullRequest.mockResolvedValueOnce(payload);
 
     const result = await handlers.get('getPullRequest')?.(
-      { workspace: 'workspace', repo_slug: 'repository', pr_id: 42 },
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 42,
+        profile: 'default',
+      },
       context,
     );
 
@@ -88,7 +93,12 @@ describe('pull request tools', () => {
     client.getPullRequestCommits.mockResolvedValueOnce(payload);
 
     const result = await handlers.get('getPullRequestCommits')?.(
-      { workspace: 'workspace', repo_slug: 'repository', pr_id: '7' },
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: '7',
+        profile: 'default',
+      },
       context,
     );
 
@@ -100,7 +110,12 @@ describe('pull request tools', () => {
     client.getPullRequestDiff.mockResolvedValueOnce(payload);
 
     const result = await handlers.get('getPullRequestDiff')?.(
-      { workspace: 'workspace', repo_slug: 'repository', pr_id: 7 },
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 7,
+        profile: 'default',
+      },
       context,
     );
 
@@ -112,7 +127,12 @@ describe('pull request tools', () => {
     client.getPullRequestComments.mockResolvedValueOnce(payload);
 
     const result = await handlers.get('getPullRequestComments')?.(
-      { workspace: 'workspace', repo_slug: 'repository', pr_id: 7 },
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 7,
+        profile: 'default',
+      },
       context,
     );
 
@@ -132,7 +152,12 @@ describe('pull request tools', () => {
     );
 
     const result = await handlers.get('getPullRequest')?.(
-      { workspace: 'workspace', repo_slug: 'repository', pr_id: 1 },
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 1,
+        profile: 'default',
+      },
       context,
     );
 
@@ -158,7 +183,12 @@ describe('pull request tools', () => {
     );
 
     const result = await handlers.get('getPullRequestDiff')?.(
-      { workspace: 'workspace', repo_slug: 'repository', pr_id: 1 },
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 1,
+        profile: 'default',
+      },
       context,
     );
 
@@ -175,7 +205,12 @@ describe('pull request tools', () => {
     );
 
     const result = await handlers.get('getPullRequestCommits')?.(
-      { workspace: 'workspace', repo_slug: 'repository', pr_id: 1 },
+      {
+        workspace: 'workspace',
+        repo_slug: 'repository',
+        pr_id: 1,
+        profile: 'default',
+      },
       context,
     );
 
@@ -200,6 +235,7 @@ describe('pull request tools', () => {
         repo_slug: 'repository',
         pr_id: 1,
         content: 'comment text',
+        profile: 'default',
       },
       context,
     );
@@ -226,6 +262,7 @@ describe('pull request tools', () => {
         pr_id: 1,
         content: 'reply',
         parent_id: 99,
+        profile: 'default',
       },
       context,
     );
@@ -251,6 +288,7 @@ describe('pull request tools', () => {
         pr_id: 1,
         content: 'text',
         agent: 'Claude Engineer Agent',
+        profile: 'default',
       },
       context,
     );
@@ -269,7 +307,7 @@ describe('pull request tools', () => {
     vi.clearAllMocks();
     registerPullRequestTools(
       { registerTool } as unknown as McpServer,
-      client as unknown as BitbucketClient,
+      new Map([['default', client as unknown as BitbucketClient]]),
       logger,
       { enabled: false, agentName: 'agent' },
     );
@@ -285,6 +323,7 @@ describe('pull request tools', () => {
         repo_slug: 'repository',
         pr_id: 1,
         content: 'plain text',
+        profile: 'default',
       },
       context,
     );
@@ -295,5 +334,58 @@ describe('pull request tools', () => {
       undefined,
       expect.any(Object),
     );
+  });
+
+  it('routes to the named profile client when profile is specified', async () => {
+    const workClient = {
+      getPullRequest: vi.fn(),
+      getPullRequestCommits: vi.fn(),
+      getPullRequestDiff: vi.fn(),
+      getPullRequestComments: vi.fn(),
+      createPullRequestComment: vi.fn(),
+    };
+    const payload = {
+      id: 1,
+      title: 'T',
+      description: '',
+      state: 'OPEN',
+      author: null,
+      source: { branch: { name: 'f' } },
+      destination: { branch: { name: 'main' } },
+      links: { html: { href: 'https://example.com' } },
+    };
+    workClient.getPullRequest.mockResolvedValueOnce(payload);
+
+    handlers.clear();
+    registerTool.mockClear();
+    vi.clearAllMocks();
+    registerPullRequestTools(
+      { registerTool } as unknown as McpServer,
+      new Map([
+        ['default', client as unknown as BitbucketClient],
+        ['work', workClient as unknown as BitbucketClient],
+      ]),
+      logger,
+    );
+
+    await handlers.get('getPullRequest')?.(
+      { workspace: 'ws', repo_slug: 'repo', pr_id: 1, profile: 'work' },
+      context,
+    );
+
+    expect(workClient.getPullRequest).toHaveBeenCalled();
+    expect(client.getPullRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns INVALID_PROFILE error for an unknown profile', async () => {
+    const result = await handlers.get('getPullRequest')?.(
+      { workspace: 'ws', repo_slug: 'repo', pr_id: 1, profile: 'unknown' },
+      context,
+    );
+
+    expect(result?.isError).toBe(true);
+    expect(JSON.parse(result?.content[0]?.text ?? '')).toMatchObject({
+      error: { code: 'INVALID_PROFILE' },
+    });
   });
 });
