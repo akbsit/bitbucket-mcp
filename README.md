@@ -32,6 +32,10 @@
 * `getPullRequestComments` returns pull request comments (general and inline) with bounded pagination;
 * `createPullRequestComment` posts a comment or reply on a pull request. Pass `parent_id` to reply to an existing comment. An attribution footer is appended automatically (configurable).
 
+All tools accept an optional `profile` parameter that selects which credential profile to use for
+the request. When omitted, the `default` profile is used. Available profiles are listed in the
+server instructions visible to the AI client at connection time.
+
 ## Project setup
 
 ### Install dependencies
@@ -110,11 +114,42 @@ Pass credentials via `env` in the client config:
 }
 ```
 
+### Multiple accounts (named profiles)
+
+Define additional profiles alongside the default credentials. Each profile is selected per tool
+call via the `profile` parameter; calls without `profile` use `"default"`.
+
+```json
+{
+  "mcpServers": {
+    "bitbucket": {
+      "command": "node",
+      "args": ["/absolute/path/to/bitbucket-mcp/.dist/index.js"],
+      "env": {
+        "BITBUCKET_API_TOKEN": "default-token",
+        "BITBUCKET_API_BASE_URL": "https://api.bitbucket.org/2.0/",
+        "BITBUCKET_PROFILE_WORK_TOKEN": "work-account-token",
+        "BITBUCKET_PROFILE_PERSONAL_TOKEN": "personal-account-token"
+      }
+    }
+  }
+}
+```
+
+Profile names are derived from the variable suffix in lowercase: `BITBUCKET_PROFILE_WORK_TOKEN`
+becomes the profile `"work"`. Each profile inherits `BITBUCKET_API_BASE_URL` unless a
+per-profile override is set (`BITBUCKET_PROFILE_WORK_BASE_URL`).
+
+> **Note:** `BITBUCKET_PROFILE_DEFAULT_TOKEN` conflicts with `BITBUCKET_API_TOKEN` and will cause
+> a startup error. Use one or the other to define the default profile.
+
 ## Configuration
+
+### Single-account variables
 
 | Variable                       | Default   | Allowed range | Purpose                                      |
 | ------------------------------ | --------- | ------------- | -------------------------------------------- |
-| `BITBUCKET_API_TOKEN`          | Required  | Non-empty     | Bitbucket Cloud API token                    |
+| `BITBUCKET_API_TOKEN`          | Required* | Non-empty     | Bitbucket Cloud API token (default profile)  |
 | `BITBUCKET_API_BASE_URL`       | Required  | HTTPS URL     | Bitbucket Cloud REST API base URL            |
 | `BITBUCKET_REQUEST_TIMEOUT_MS` | `15000`   | 1000-120000   | Timeout for each HTTP attempt                |
 | `BITBUCKET_MAX_RETRIES`        | `2`       | 0-5           | Retries after the initial request            |
@@ -125,6 +160,17 @@ Pass credentials via `env` in the client config:
 | `BITBUCKET_MAX_JSON_BYTES`     | `1000000` | 1024-10000000 | Maximum bytes accepted in one JSON response  |
 | `BITBUCKET_COMMENT_FOOTER`     | `true`    | true/false    | Append attribution footer to posted comments |
 | `BITBUCKET_AGENT_NAME`         | `agent`   | 1-100 chars   | Agent name used in the footer template       |
+
+\* Required unless at least one named profile is defined.
+
+### Named profile variables
+
+| Variable                            | Purpose                                                                        |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
+| `BITBUCKET_PROFILE_<NAME>_TOKEN`    | API token for profile `<name>` (lowercase)                                     |
+| `BITBUCKET_PROFILE_<NAME>_BASE_URL` | Base URL override for profile `<name>`; falls back to `BITBUCKET_API_BASE_URL` |
+
+`<NAME>` must contain only uppercase letters and digits (e.g. `WORK`, `PERSONAL`).
 
 The API base URL must use HTTPS and cannot contain credentials, query parameters, or fragments.
 

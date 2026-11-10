@@ -37,6 +37,12 @@ const pullRequestInputSchema = z.object({
       z.number().int().positive(),
     ])
     .describe('Positive pull request identifier'),
+  profile: z
+    .string()
+    .trim()
+    .min(1)
+    .default('default')
+    .describe('Named credential profile to use (default: "default")'),
 });
 
 const pullRequestOutputSchema = z.object({
@@ -121,6 +127,23 @@ function successResult<Payload extends Record<string, unknown>>(
   };
 }
 
+function invalidProfileResult(profile: string) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: JSON.stringify({
+          error: {
+            code: 'INVALID_PROFILE',
+            message: `Unknown profile: "${profile}". Check available profiles in the server instructions.`,
+          },
+        }),
+      },
+    ],
+    isError: true as const,
+  };
+}
+
 function errorResult(error: unknown, logger: Logger) {
   if (error instanceof BitbucketClientError) {
     logger.error('bitbucket_tool_failed', {
@@ -170,7 +193,7 @@ function errorResult(error: unknown, logger: Logger) {
 
 export function registerPullRequestTools(
   server: McpServer,
-  client: BitbucketClient,
+  clients: Map<string, BitbucketClient>,
   logger: Logger,
   footerConfig: CommentFooterConfig = DEFAULT_FOOTER_CONFIG,
 ): void {
@@ -182,6 +205,8 @@ export function registerPullRequestTools(
       outputSchema: pullRequestOutputSchema,
     },
     async (input, context) => {
+      const client = clients.get(input.profile);
+      if (!client) return invalidProfileResult(input.profile);
       try {
         const result = await client.getPullRequest(
           toReference(input),
@@ -203,6 +228,8 @@ export function registerPullRequestTools(
       outputSchema: commitsOutputSchema,
     },
     async (input, context) => {
+      const client = clients.get(input.profile);
+      if (!client) return invalidProfileResult(input.profile);
       try {
         const result = await client.getPullRequestCommits(
           toReference(input),
@@ -224,6 +251,8 @@ export function registerPullRequestTools(
       outputSchema: diffOutputSchema,
     },
     async (input, context) => {
+      const client = clients.get(input.profile);
+      if (!client) return invalidProfileResult(input.profile);
       try {
         const result = await client.getPullRequestDiff(
           toReference(input),
@@ -245,6 +274,8 @@ export function registerPullRequestTools(
       outputSchema: commentsOutputSchema,
     },
     async (input, context) => {
+      const client = clients.get(input.profile);
+      if (!client) return invalidProfileResult(input.profile);
       try {
         const result = await client.getPullRequestComments(
           toReference(input),
@@ -296,6 +327,8 @@ export function registerPullRequestTools(
       outputSchema: createCommentOutputSchema,
     },
     async (input, context) => {
+      const client = clients.get(input.profile);
+      if (!client) return invalidProfileResult(input.profile);
       try {
         const agentName = input.agent ?? footerConfig.agentName;
         const footer = footerConfig.enabled

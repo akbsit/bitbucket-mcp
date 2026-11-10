@@ -8,18 +8,22 @@ import {
 } from './tools/pull-request-tools';
 
 export function createServer(
-  client: BitbucketClient,
+  clients: Map<string, BitbucketClient>,
   logger: Logger,
   footerConfig?: CommentFooterConfig,
 ): McpServer {
+  const profileList = [...clients.keys()].join(', ');
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
     {
       instructions:
-        'This server provides Bitbucket Cloud pull request data and allows posting comments. Read results can be truncated when configured safety limits are reached.',
+        `This server provides Bitbucket Cloud pull request data and allows posting comments. ` +
+        `Available credential profiles: ${profileList}. ` +
+        `Pass "profile" in tool arguments to select one (default: "default"). ` +
+        `Read results can be truncated when configured safety limits are reached.`,
     },
   );
 
-  registerPullRequestTools(server, client, logger, footerConfig);
+  registerPullRequestTools(server, clients, logger, footerConfig);
   return server;
 }
